@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import io
+import logging
 from pathlib import Path
 from typing import Literal
+import wave
 
 import httpx
 from dotenv import load_dotenv
@@ -25,6 +28,7 @@ LANGUAGE_NAMES = {
 GNANI_LOCALES = {"en": "en-IN", "kn": "kn-IN", "te": "te-IN", "hi": "hi-IN"}
 
 app = FastAPI(title="Arogya Voice API", version="0.2.0")
+logger = logging.getLogger(__name__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
@@ -141,7 +145,11 @@ async def speech_to_text(
     }
 
 
-@app.post("/voice/tts")
+@app.post(
+    "/voice/tts",
+    response_class=Response,
+    responses={200: {"content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}}}},
+)
 async def text_to_speech(request: SpeechRequest):
     api_key = os.getenv("GNANI_API_KEY", "").strip()
     if not api_key:
@@ -174,4 +182,42 @@ async def text_to_speech(request: SpeechRequest):
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Speech output is temporarily unavailable. You can still read the reply.") from exc
 
-    return Response(content=result.content, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+    audio_bytes = result.content
+    try:
+        with wave.open(io.BytesIO(audio_bytes), "rb") as audio_file:
+            frame_count = audio_file.getnframes()
+            sample_rate = audio_file.getframerate()
+    except (wave.Error, EOFError, OSError) as exc:
+        logger.warning(
+            "Gnani TTS returned non-WAV audio: upstream_status=%s content_type=%s bytes=%s",
+            result.status_code,
+            result.headers.get("content-type", "missing"),
+            len(audio_bytes),
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Speech service returned an unreadable audio file. You can still read the reply.",
+        ) from None
+
+    if frame_count <= 0 or sample_rate <= 0:
+        logger.warning(
+            "Gnani TTS returned an empty WAV: upstream_status=%s content_type=%s bytes=%s frames=%s sample_rate=%s",
+            result.status_code,
+            result.headers.get("content-type", "missing"),
+            len(audio_bytes),
+            frame_count,
+            sample_rate,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Speech service returned an empty audio file. You can still read the reply.",
+        )
+
+    logger.info(
+        "Gnani TTS audio validated: upstream_status=%s content_type=%s bytes=%s duration_seconds=%.2f",
+        result.status_code,
+        result.headers.get("content-type", "missing"),
+        len(audio_bytes),
+        frame_count / sample_rate,
+    )
+    return Response(content=audio_bytes, media_type="audio/wav", headers={"Cache-Control": "no-store"})
