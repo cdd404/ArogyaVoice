@@ -194,7 +194,8 @@ export default function App() {
             body: JSON.stringify({ language, text: data.reply }),
           });
           if (!speech.ok) throw new Error('tts');
-          const audioUrl = URL.createObjectURL(await speech.blob());
+          const wavBlob = new Blob([await speech.blob()], { type: 'audio/wav' });
+          const audioUrl = URL.createObjectURL(wavBlob);
           audioUrlsRef.current.push(audioUrl);
           setMessages((current) => current.map((item) => item.id === assistantItem.id ? { ...item, audioUrl } : item));
           const player = new Audio(audioUrl);

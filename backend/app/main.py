@@ -177,10 +177,24 @@ async def text_to_speech(request: SpeechRequest):
                 json=payload,
             )
         result.raise_for_status()
+    
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="Speech output is temporarily unavailable. You can still read the reply.") from exc
+        logger.error(
+            "Gnani TTS error: status=%s, response=%s",
+            exc.response.status_code,
+            exc.response.text[:1000],
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Speech output is temporarily unavailable. You can still read the reply.",
+        ) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Speech output is temporarily unavailable. You can still read the reply.") from exc
+        logger.error("Gnani TTS connection error: %s", str(exc))
+        raise HTTPException(
+            status_code=502,
+            detail="Speech output is temporarily unavailable. You can still read the reply.",
+        ) from exc
+
 
     audio_bytes = result.content
     try:
