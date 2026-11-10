@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /sessions/{sessionId} {
+      allow create: if request.resource.data.keys().hasAll(['language', 'createdAt', 'lastActivityAt'])
+        && request.resource.data.keys().hasOnly(['language', 'createdAt', 'lastActivityAt'])
+        && request.resource.data.language in ['en', 'kn', 'te', 'hi']
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastActivityAt == request.time;
+      allow update: if request.resource.data.keys().hasAll(['language', 'createdAt', 'lastActivityAt'])
+        && request.resource.data.keys().hasOnly(['language', 'createdAt', 'lastActivityAt'])
+        && request.resource.data.language == resource.data.language
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.lastActivityAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivityAt']);
+      allow read, delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
