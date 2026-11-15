@@ -1,0 +1,53 @@
+AROGYA VOICE – MULTILINGUAL AI-POWERED HEALTHCARE ASSISTANCE
+
+**Problem Statement**
+
+Language barriers, limited healthcare awareness and difficulty understanding medical information can prevent people from accessing basic healthcare guidance. This is particularly challenging for individuals who are more comfortable communicating in regional languages or have difficulty typing and reading complex medical information.
+
+**Our Solution**
+
+Arogya Voice is a multilingual, AI-powered healthcare assistance prototype that allows users to communicate with an AI assistant through voice or text and receive understandable healthcare information in their preferred language.
+
+The platform aims to make basic healthcare information more accessible through natural, voice-first interaction.
+
+**Key Features**
+
+1. **Multilingual Communication:** Supports English, Hindi, Kannada and Telugu, allowing users to interact in their preferred language.
+
+2. **Voice-Based Healthcare Assistance:** Users can describe their symptoms naturally through a microphone instead of typing lengthy questions.
+
+3. **AI-Powered Responses:** A Groq-powered language model processes user queries and generates simple, context-aware healthcare information.
+
+4. **Speech Recognition:** Gnani AI Prisma converts spoken queries into text for processing.
+
+5. **Natural Voice Responses:** Gnani AI Timbre converts AI-generated answers into speech in the selected language.
+
+6. **Text and Voice Interaction:** Users can choose between text-based and voice-based communication.
+
+7. **Prescription Intelligence:** Users can upload prescriptions, extract and verify medicine details, and ask questions to understand prescribed medication instructions in simple language.
+
+8. **My Medicine Cabinet:** Provides an organized view of saved prescription information and verified medicine details.
+
+**Technology Stack**
+
+- Frontend: React.js and Vite
+- Backend: Python and FastAPI
+- AI Language Model: Groq API
+- Speech-to-Text: Gnani AI Prisma
+- Text-to-Speech: Gnani AI Timbre
+- Database: Firebase Firestore
+- Document Processing: Python-based OCR and PDF extraction tools
+
+**How It Works**
+
+The user selects a preferred language and chooses text or voice interaction. For voice queries, Gnani AI Prisma converts speech into text. The backend sends the query to the Groq-powered language model, which generates an appropriate response. Gnani AI Timbre then converts the generated response into speech, allowing users to receive both text and audio.
+
+The Prescription Intelligence module additionally processes uploaded prescription documents, extracts medicine information and allows users to verify the extracted details before asking questions about them.
+
+**Impact and Vision**
+
+Arogya Voice aims to reduce language and accessibility barriers in understanding basic healthcare information. By combining multilingual AI, speech recognition, speech synthesis and prescription understanding, it provides a more natural way for people to interact with healthcare information.
+
+The system is designed as an assistive prototype, not a replacement for qualified medical professionals. It does not independently diagnose conditions or prescribe medicines.
+
+**Project Tagline: Arogya Voice – Healthcare assistance that speaks your language.**
