@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createSession, touchSession } from './firebase.js';
+import PrescriptionWorkspace from './PrescriptionWorkspace.jsx';
+import SpeechPlayback from './SpeechPlayback.jsx';
 import './style.css';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -19,9 +21,9 @@ const words = {
     hello: 'Hello', assistant: 'Arogya assistant', role: 'AI health guide', newChat: 'New conversation', today: 'YOUR CARE SPACE',
     greeting: 'I’m here to listen. Tell me what’s bothering you, and I’ll help you think through a safe next step.',
     inputHint: 'Write what you’re feeling…', send: 'Send', voice: 'Voice mode', text: 'Text mode', record: 'Speak your concern', stop: 'Stop recording', recording: 'Listening… tap to finish',
-    processing: 'Preparing a careful reply…', safety: 'Arogya Voice is an AI prototype, not a doctor. It cannot diagnose or prescribe. For severe or rapidly worsening symptoms, contact local emergency services now.',
+    processing: 'Preparing a careful reply…', playLabel: 'Play', safety: 'Arogya Voice is an AI prototype, not a doctor. It cannot diagnose or prescribe. For severe or rapidly worsening symptoms, contact local emergency services now.',
     privacy: 'Your messages go to the AI service to generate replies. The app saves only session ID, language, and timestamps in Firebase; it does not save chat text or audio.',
-    error: 'I couldn’t get a reply just now. Please try again in a moment.', audioError: 'Your text reply is ready, but voice playback is unavailable right now.',
+    error: 'I couldn’t get a reply just now. Please try again in a moment.', audioError: 'Voice could not be prepared. Your reply is held privately until audio is retried or you choose text-only.', retryAudio: 'Retry audio', showText: 'View text-only reply', hideText: 'Hide text reply', preparingVoice: 'Preparing your response and voice…',
     session: 'Private session', connection: 'Secure connection', emergency: 'Need urgent help?',
     welcomeLabel: 'WELCOME TO AROGYA VOICE', chooseLabel: 'A LITTLE ABOUT YOU', chatLabel: 'YOUR CONVERSATION', back: 'Back',
   },
@@ -33,9 +35,9 @@ const words = {
     hello: 'ನಮಸ್ಕಾರ', assistant: 'ಆರೋಗ್ಯ ಸಹಾಯಕ', role: 'AI ಆರೋಗ್ಯ ಮಾರ್ಗದರ್ಶಿ', newChat: 'ಹೊಸ ಮಾತುಕತೆ', today: 'ನಿಮ್ಮ ಆರೈಕೆ ಸ್ಥಳ',
     greeting: 'ನಿಮ್ಮ ಮಾತು ಕೇಳಲು ನಾನು ಇಲ್ಲಿದ್ದೇನೆ. ನಿಮಗೆ ಏನು ತೊಂದರೆ ಎಂದು ಹೇಳಿ; ಸುರಕ್ಷಿತ ಮುಂದಿನ ಹೆಜ್ಜೆ ಯೋಚಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ.',
     inputHint: 'ನಿಮಗೆ ಹೇಗಿದೆ ಎಂದು ಬರೆಯಿರಿ…', send: 'ಕಳುಹಿಸಿ', voice: 'ಧ್ವನಿ ವಿಧಾನ', text: 'ಪಠ್ಯ ವಿಧಾನ', record: 'ನಿಮ್ಮ ಸಮಸ್ಯೆಯನ್ನು ಹೇಳಿ', stop: 'ರೆಕಾರ್ಡಿಂಗ್ ನಿಲ್ಲಿಸಿ', recording: 'ಕೇಳುತ್ತಿದ್ದೇನೆ… ಮುಗಿಸಲು ಒತ್ತಿರಿ',
-    processing: 'ಜಾಗರೂಕ ಉತ್ತರ ಸಿದ್ಧವಾಗುತ್ತಿದೆ…', safety: 'ಆರೋಗ್ಯ ವಾಯ್ಸ್ ವೈದ್ಯರಲ್ಲ; ಇದು AI ಮಾದರಿ. ರೋಗನಿರ್ಣಯ ಅಥವಾ ಔಷಧ ಸೂಚನೆ ನೀಡುವುದಿಲ್ಲ. ತೀವ್ರ ಅಥವಾ ಬೇಗ ಹದಗೆಡುವ ಲಕ್ಷಣಗಳಿದ್ದರೆ ತಕ್ಷಣ ಸ್ಥಳೀಯ ತುರ್ತು ಸೇವೆಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+    processing: 'ಜಾಗರೂಕ ಉತ್ತರ ಸಿದ್ಧವಾಗುತ್ತಿದೆ…', playLabel: 'ಪ್ಲೇ', safety: 'ಆರೋಗ್ಯ ವಾಯ್ಸ್ ವೈದ್ಯರಲ್ಲ; ಇದು AI ಮಾದರಿ. ರೋಗನಿರ್ಣಯ ಅಥವಾ ಔಷಧ ಸೂಚನೆ ನೀಡುವುದಿಲ್ಲ. ತೀವ್ರ ಅಥವಾ ಬೇಗ ಹದಗೆಡುವ ಲಕ್ಷಣಗಳಿದ್ದರೆ ತಕ್ಷಣ ಸ್ಥಳೀಯ ತುರ್ತು ಸೇವೆಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ.',
     privacy: 'ಉತ್ತರ ರಚಿಸಲು ನಿಮ್ಮ ಸಂದೇಶಗಳು AI ಸೇವೆಗೆ ಹೋಗುತ್ತವೆ. Firebase ನಲ್ಲಿ ಸೆಷನ್ ID, ಭಾಷೆ ಮತ್ತು ಸಮಯದ ವಿವರಗಳು ಮಾತ್ರ ಉಳಿಯುತ್ತವೆ; ಚಾಟ್ ಪಠ್ಯ ಅಥವಾ ಧ್ವನಿ ಉಳಿಯುವುದಿಲ್ಲ.',
-    error: 'ಈಗ ಉತ್ತರ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಹೊತ್ತಿನ ಬಳಿಕ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', audioError: 'ಪಠ್ಯ ಉತ್ತರ ಸಿದ್ಧವಾಗಿದೆ, ಆದರೆ ಈಗ ಧ್ವನಿ ಪ್ಲೇ ಆಗುತ್ತಿಲ್ಲ.',
+    error: 'ಈಗ ಉತ್ತರ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಹೊತ್ತಿನ ಬಳಿಕ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', audioError: 'ಧ್ವನಿ ಸಿದ್ಧವಾಗಲಿಲ್ಲ. ಧ್ವನಿಯನ್ನು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುವವರೆಗೆ ಅಥವಾ ಪಠ್ಯ ಆಯ್ಕೆ ಮಾಡುವವರೆಗೆ ಉತ್ತರವನ್ನು ಮರೆಮಾಡಲಾಗಿದೆ.', retryAudio: 'ಧ್ವನಿಯನ್ನು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', showText: 'ಪಠ್ಯ ಉತ್ತರವನ್ನು ನೋಡಿ', hideText: 'ಪಠ್ಯ ಉತ್ತರವನ್ನು ಮರೆಮಾಡಿ', preparingVoice: 'ಉತ್ತರ ಮತ್ತು ಧ್ವನಿ ಸಿದ್ಧವಾಗುತ್ತಿದೆ…',
     session: 'ಖಾಸಗಿ ಸೆಷನ್', connection: 'ಸುರಕ್ಷಿತ ಸಂಪರ್ಕ', emergency: 'ತುರ್ತು ಸಹಾಯ ಬೇಕೇ?',
     welcomeLabel: 'ಆರೋಗ್ಯ ವಾಯ್ಸ್‌ಗೆ ಸ್ವಾಗತ', chooseLabel: 'ನಿಮ್ಮ ಬಗ್ಗೆ ಸ್ವಲ್ಪ', chatLabel: 'ನಿಮ್ಮ ಮಾತುಕತೆ', back: 'ಹಿಂದೆ',
   },
@@ -47,9 +49,9 @@ const words = {
     hello: 'నమస్కారం', assistant: 'ఆరోగ్య సహాయకుడు', role: 'AI ఆరోగ్య మార్గదర్శి', newChat: 'కొత్త సంభాషణ', today: 'మీ ఆరోగ్య స్థలం',
     greeting: 'మీ మాట వినడానికి నేను ఇక్కడ ఉన్నాను. మీకు ఏమి ఇబ్బందిగా ఉందో చెప్పండి; సురక్షితమైన తదుపరి అడుగు ఆలోచించడంలో సహాయపడతాను.',
     inputHint: 'మీకు ఎలా అనిపిస్తోందో రాయండి…', send: 'పంపండి', voice: 'వాయిస్ మోడ్', text: 'టెక్స్ట్ మోడ్', record: 'మీ సమస్యను చెప్పండి', stop: 'రికార్డింగ్ ఆపండి', recording: 'వింటున్నాను… పూర్తయ్యాక నొక్కండి',
-    processing: 'జాగ్రత్తగా సమాధానం సిద్ధమవుతోంది…', safety: 'ఆరోగ్య వాయిస్ వైద్యుడు కాదు; ఇది AI నమూనా. వ్యాధి నిర్ధారణ లేదా మందుల సూచనలు ఇవ్వదు. తీవ్రమైన లేదా త్వరగా పెరుగుతున్న లక్షణాలుంటే వెంటనే స్థానిక అత్యవసర సేవలను సంప్రదించండి.',
+    processing: 'జాగ్రత్తగా సమాధానం సిద్ధమవుతోంది…', playLabel: 'ప్లే చేయండి', safety: 'ఆరోగ్య వాయిస్ వైద్యుడు కాదు; ఇది AI నమూనా. వ్యాధి నిర్ధారణ లేదా మందుల సూచనలు ఇవ్వదు. తీవ్రమైన లేదా త్వరగా పెరుగుతున్న లక్షణాలుంటే వెంటనే స్థానిక అత్యవసర సేవలను సంప్రదించండి.',
     privacy: 'సమాధానాల కోసం మీ సందేశాలు AI సేవకు వెళ్తాయి. Firebase లో సెషన్ ID, భాష, సమయ వివరాలు మాత్రమే సేవ్ అవుతాయి; చాట్ లేదా ఆడియో సేవ్ కావు.',
-    error: 'ఇప్పుడే సమాధానం పొందలేకపోయాను. కొద్దిసేపటికి మళ్లీ ప్రయత్నించండి.', audioError: 'టెక్స్ట్ సమాధానం వచ్చింది, కానీ ఇప్పుడు వాయిస్ ప్లే కావడం లేదు.',
+    error: 'ఇప్పుడే సమాధానం పొందలేకపోయాను. కొద్దిసేపటికి మళ్లీ ప్రయత్నించండి.', audioError: 'వాయిస్ సిద్ధం కాలేదు. మళ్లీ ప్రయత్నించే వరకు లేదా టెక్స్ట్ ఎంచుకునే వరకు సమాధానం దాచబడింది.', retryAudio: 'ఆడియోను మళ్లీ ప్రయత్నించండి', showText: 'టెక్స్ట్ సమాధానం చూడండి', hideText: 'టెక్స్ట్ సమాధానం దాచండి', preparingVoice: 'సమాధానం మరియు వాయిస్ సిద్ధమవుతున్నాయి…',
     session: 'వ్యక్తిగత సెషన్', connection: 'సురక్షిత కనెక్షన్', emergency: 'అత్యవసర సహాయం కావాలా?',
     welcomeLabel: 'ఆరోగ్య వాయిస్‌కు స్వాగతం', chooseLabel: 'మీ గురించి కొంచెం', chatLabel: 'మీ సంభాషణ', back: 'వెనక్కి',
   },
@@ -61,9 +63,9 @@ const words = {
     hello: 'नमस्ते', assistant: 'आरोग्य सहायक', role: 'AI स्वास्थ्य मार्गदर्शक', newChat: 'नई बातचीत', today: 'आपकी देखभाल की जगह',
     greeting: 'मैं आपकी बात सुनने के लिए यहाँ हूँ। आपको क्या परेशानी है, बताइए; मैं सुरक्षित अगला कदम सोचने में मदद करूँगा।',
     inputHint: 'आप कैसा महसूस कर रहे हैं, लिखें…', send: 'भेजें', voice: 'आवाज़ मोड', text: 'टेक्स्ट मोड', record: 'अपनी परेशानी बोलें', stop: 'रिकॉर्डिंग रोकें', recording: 'सुन रहा हूँ… पूरा होने पर दबाएँ',
-    processing: 'सावधानी से जवाब तैयार हो रहा है…', safety: 'आरोग्य वॉइस डॉक्टर नहीं, AI प्रोटोटाइप है। यह बीमारी का निदान या दवा की सलाह नहीं देता। गंभीर या तेज़ी से बिगड़ते लक्षण हों तो तुरंत स्थानीय आपातकालीन सेवा से संपर्क करें।',
+    processing: 'सावधानी से जवाब तैयार हो रहा है…', playLabel: 'चलाएँ', safety: 'आरोग्य वॉइस डॉक्टर नहीं, AI प्रोटोटाइप है। यह बीमारी का निदान या दवा की सलाह नहीं देता। गंभीर या तेज़ी से बिगड़ते लक्षण हों तो तुरंत स्थानीय आपातकालीन सेवा से संपर्क करें.',
     privacy: 'जवाब बनाने के लिए आपके संदेश AI सेवा को भेजे जाते हैं। Firebase में केवल सेशन ID, भाषा और समय की जानकारी सहेजी जाती है; चैट या आवाज़ नहीं।',
-    error: 'अभी जवाब नहीं मिल पाया। कृपया थोड़ी देर बाद फिर कोशिश करें।', audioError: 'टेक्स्ट जवाब तैयार है, लेकिन आवाज़ अभी उपलब्ध नहीं है।',
+    error: 'अभी जवाब नहीं मिल पाया। कृपया थोड़ी देर बाद फिर कोशिश करें।', audioError: 'आवाज़ तैयार नहीं हो सकी। ऑडियो फिर से आज़माने या केवल टेक्स्ट चुनने तक जवाब छिपा रहेगा।', retryAudio: 'ऑडियो फिर से आज़माएँ', showText: 'केवल टेक्स्ट जवाब देखें', hideText: 'टेक्स्ट जवाब छिपाएँ', preparingVoice: 'जवाब और आवाज़ तैयार हो रही है…',
     session: 'निजी सेशन', connection: 'सुरक्षित कनेक्शन', emergency: 'तुरंत मदद चाहिए?',
     welcomeLabel: 'आरोग्य वॉइस में स्वागत है', chooseLabel: 'आपके बारे में थोड़ा', chatLabel: 'आपकी बातचीत', back: 'वापस',
   },
@@ -125,11 +127,13 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [sessionStatus, setSessionStatus] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState('');
+  const [workspace, setWorkspace] = useState('chat');
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
+  const chatRequestRef = useRef({ id: 0, controller: null });
+  const retryingAudioRef = useRef(new Set());
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
-  const audioUrlsRef = useRef([]);
   const t = words[language];
 
   useEffect(() => {
@@ -137,10 +141,10 @@ export default function App() {
   }, [language]);
 
   useEffect(() => () => {
+    chatRequestRef.current.controller?.abort();
     if (timerRef.current) window.clearTimeout(timerRef.current);
     if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop();
     streamRef.current?.getTracks().forEach((track) => track.stop());
-    audioUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
   function enterLanguageStep(event) {
@@ -167,13 +171,18 @@ export default function App() {
     }
   }
 
-  async function sendMessage(text = draft, speak = mode === 'voice') {
+  async function sendMessage(text = draft) {
     const cleanText = text.trim();
-    if (!cleanText || busy) return;
+    if (!cleanText) return;
+    window.dispatchEvent(new Event('arogya:cancel-speech'));
+    chatRequestRef.current.controller?.abort();
+    const requestId = chatRequestRef.current.id + 1;
+    const controller = new AbortController();
+    chatRequestRef.current = { id: requestId, controller };
     const history = messages.filter((item) => item.role === 'user' || item.role === 'assistant').slice(-16).map(({ role, content }) => ({ role, content }));
     const userItem = { id: 'u-' + Date.now(), role: 'user', content: cleanText };
     const pendingId = 'pending-' + Date.now();
-    setMessages((current) => [...current, userItem, { id: pendingId, role: 'assistant', pending: true, content: t.processing }]);
+    setMessages((current) => [...current.filter((item) => !item.pending).map(({ audioBlob: _audioBlob, autoPlay: _autoPlay, ...item }) => item), userItem, { id: pendingId, role: 'assistant', pending: true, content: t.preparingVoice }]);
     setDraft('');
     setNotice('');
     setBusy(true);
@@ -181,33 +190,49 @@ export default function App() {
     try {
       const response = await fetch(API_BASE + '/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language, message: cleanText, history }),
+        body: JSON.stringify({ language, message: cleanText, history }), signal: controller.signal,
       });
       if (!response.ok) throw new Error(await errorFrom(response, t.error));
       const data = await response.json();
-      const assistantItem = { id: 'a-' + Date.now(), role: 'assistant', content: data.reply };
-      setMessages((current) => current.map((item) => item.id === pendingId ? assistantItem : item));
-      if (speak) {
+      let audioBlob = null;
+      if (data.audio_base64 && data.voice_status === 'ready') {
         try {
-          const speech = await fetch(API_BASE + '/voice/tts', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ language, text: data.reply }),
-          });
-          if (!speech.ok) throw new Error('tts');
-          const wavBlob = new Blob([await speech.blob()], { type: 'audio/wav' });
-          const audioUrl = URL.createObjectURL(wavBlob);
-          audioUrlsRef.current.push(audioUrl);
-          setMessages((current) => current.map((item) => item.id === assistantItem.id ? { ...item, audioUrl } : item));
-          const player = new Audio(audioUrl);
-          player.play().catch(() => setNotice('Tap the audio controls to play the reply.'));
-        } catch {
-          setNotice(t.audioError);
-        }
+          const raw = atob(data.audio_base64);
+          const bytes = Uint8Array.from(raw, (character) => character.charCodeAt(0));
+          if (bytes.byteLength > 44) audioBlob = new Blob([bytes], { type: data.audio_content_type || 'audio/wav' });
+        } catch { /* Keep the text private and let the patient retry TTS. */ }
       }
+      const assistantItem = audioBlob
+        ? { id: 'a-' + Date.now(), role: 'assistant', content: data.reply, language, audioBlob, autoPlay: true }
+        : { id: 'a-' + Date.now(), role: 'assistant', content: data.reply, language, voiceFailed: true, retrying: false, showText: false };
+      if (requestId !== chatRequestRef.current.id) return;
+      setMessages((current) => current.map((item) => item.id === pendingId ? assistantItem : item));
     } catch (error) {
+      if (requestId !== chatRequestRef.current.id || error.name === 'AbortError') return;
       setMessages((current) => current.map((item) => item.id === pendingId ? { id: pendingId, role: 'assistant', content: error.message || t.error, error: true } : item));
     } finally {
-      setBusy(false);
+      if (requestId === chatRequestRef.current.id) setBusy(false);
+    }
+  }
+
+  async function retryAudio(messageId) {
+    const item = messages.find((message) => message.id === messageId);
+    if (!item?.voiceFailed || item.retrying || retryingAudioRef.current.has(messageId)) return;
+    retryingAudioRef.current.add(messageId);
+    setMessages((current) => current.map((message) => message.id === messageId ? { ...message, retrying: true, retryError: false } : message));
+    try {
+      const response = await fetch(API_BASE + '/voice/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: item.language || language, text: item.content }),
+      });
+      if (!response.ok) throw new Error(await errorFrom(response, t.audioError));
+      const audioBlob = await response.blob();
+      if (!audioBlob.size) throw new Error(t.audioError);
+      retryingAudioRef.current.delete(messageId);
+      setMessages((current) => current.map((message) => message.id === messageId ? { ...message, audioBlob, autoPlay: true, voiceFailed: false, retrying: false } : message));
+    } catch {
+      retryingAudioRef.current.delete(messageId);
+      setMessages((current) => current.map((message) => message.id === messageId ? { ...message, retrying: false, retryError: true } : message));
     }
   }
 
@@ -222,7 +247,7 @@ export default function App() {
       if (!response.ok) throw new Error(await errorFrom(response, t.error));
       const data = await response.json();
       if (!data.transcript?.trim()) throw new Error('I could not hear speech. Please try again.');
-      await sendMessage(data.transcript, true);
+      await sendMessage(data.transcript);
     } catch (error) {
       setNotice(error.message || t.error);
     } finally {
@@ -301,11 +326,13 @@ export default function App() {
     <footer className="welcome-footer"><span>Designed for care, built with caution.</span><span>Demo experience <i>·</i> Synthetic data only</span></footer>
   </main>;
 
+  if (workspace === 'prescriptions') return <PrescriptionWorkspace language={language} onBack={() => setWorkspace('chat')} />;
+
   return <main className="app-layout" id="top">
-    <aside className="sidebar"><Brand /><div className="side-caption">{t.today}</div><button type="button" className="new-chat-button" onClick={startNewConversation}><span>＋</span>{t.newChat}</button><div className="side-session"><span className="session-icon">✳</span><span><b>{t.session}</b><small>{t.connection}</small></span><i className="status-dot"/></div><div className="side-spacer"/><div className="sidebar-safety"><span className="safety-icon">＋</span><p>{t.emergency}<br/><small>{t.safety}</small></p></div><div className="side-bottom"><span>✳</span> Arogya Voice <small>v0.2 prototype</small></div></aside>
+    <aside className="sidebar"><Brand /><div className="side-caption">{t.today}</div><button type="button" className="new-chat-button" onClick={startNewConversation}><span>＋</span>{t.newChat}</button><button type="button" className="new-chat-button prescription-nav" onClick={() => setWorkspace('prescriptions')}><span>▤</span>{language === 'kn' ? 'ನನ್ನ ಔಷಧಿ ಪಟ್ಟಿ' : language === 'te' ? 'నా మందుల జాబితా' : language === 'hi' ? 'मेरी दवा सूची' : 'My Medicine Cabinet'}</button><div className="side-session"><span className="session-icon">✳</span><span><b>{t.session}</b><small>{t.connection}</small></span><i className="status-dot"/></div><div className="side-spacer"/><div className="sidebar-safety"><span className="safety-icon">＋</span><p>{t.emergency}<br/><small>{t.safety}</small></p></div><div className="side-bottom"><span>✳</span> Arogya Voice <small>v0.2 prototype</small></div></aside>
     <section className="chat-column"><header className="chat-header"><div className="assistant-heading"><span className="assistant-avatar">✳</span><span><b>{t.assistant}</b><small><i className="status-dot"/> {t.role}</small></span></div><div className="chat-header-right"><span className="language-chip">{languageOptions.find((item) => item.code === language)?.native}</span><div className="mode-switch" role="group" aria-label="Conversation mode"><button type="button" className={mode === 'voice' ? 'active' : ''} aria-pressed={mode === 'voice'} onClick={() => setMode('voice')}><span>◖</span>{t.voice}</button><button type="button" className={mode === 'text' ? 'active' : ''} aria-pressed={mode === 'text'} onClick={() => setMode('text')}><span>▤</span>{t.text}</button></div></div></header>
-      <div className="conversation-scroll"><div className="conversation-inner"><div className="day-divider"><span/><b>{t.chatLabel}</b><span/></div><div className="messages" aria-live="polite">{messages.map((item) => <article className={'message-row ' + (item.role === 'user' ? 'from-user' : 'from-assistant')} key={item.id}><span className={item.role === 'user' ? 'message-avatar user-avatar' : 'message-avatar assistant-avatar'}>{item.role === 'user' ? (patientName ? patientName.slice(0, 1).toUpperCase() : 'Y') : '✳'}</span><div className="message-stack"><span className="message-author">{item.role === 'user' ? (patientName || 'You') : t.assistant}</span><div className={'message-bubble ' + (item.role === 'user' ? 'user-bubble' : 'assistant-bubble') + (item.error ? ' error-bubble' : '')}>{item.pending ? <><span className="typing-dots"><i/><i/><i/></span>{item.content}</> : item.content}</div>{item.audioUrl && <audio className="audio-player" controls preload="none" src={item.audioUrl}>{t.speaking}</audio>}</div></article>)}</div><div className="chat-disclosures"><div className="safety-banner"><span className="safety-icon">＋</span><p>{t.safety}</p></div><p className="privacy-line">{t.privacy}</p></div></div></div>
-      <div className="composer-wrap"><div className="composer-inner">{mode === 'voice' && <div className={'voice-prompt ' + (recording ? 'is-recording' : '')}><span className="voice-wave"><i/><i/><i/><i/><i/></span><span>{recording ? t.recording : voiceBusy ? t.processing : t.record}</span></div>}<div className="composer"><textarea aria-label={t.inputHint} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder={t.inputHint} rows="1" maxLength={2000} disabled={busy || voiceBusy}/>{mode === 'voice' && <button className={'mic-button ' + (recording ? 'recording' : '')} type="button" onClick={() => void toggleRecording()} disabled={busy || voiceBusy} aria-label={recording ? t.stop : t.record}>{recording ? '■' : '●'}</button>}<button className="send-button" type="button" onClick={() => void sendMessage()} disabled={busy || voiceBusy || !draft.trim()} aria-label={t.send}>{busy || voiceBusy ? <span className="send-spinner"/> : '↑'}</button></div><div className="composer-bottom"><span>{mode === 'voice' ? '30 sec max · Your recording is not saved by this app' : 'Press Enter to send · Shift + Enter for a new line'}</span><span>✳ Arogya Voice may make mistakes</span></div>{notice && <p className="inline-notice" role="status">{notice}</p>}{sessionStatus === 'local' && <p className="inline-notice" role="status">Session metadata could not be saved. The conversation remains temporary in this tab.</p>}</div></div>
+      <div className="conversation-scroll"><div className="conversation-inner"><div className="day-divider"><span/><b>{t.chatLabel}</b><span/></div><div className="messages" aria-live="polite">{messages.map((item) => <article className={'message-row ' + (item.role === 'user' ? 'from-user' : 'from-assistant')} key={item.id}><span className={item.role === 'user' ? 'message-avatar user-avatar' : 'message-avatar assistant-avatar'}>{item.role === 'user' ? (patientName ? patientName.slice(0, 1).toUpperCase() : 'Y') : '✳'}</span><div className="message-stack"><span className="message-author">{item.role === 'user' ? (patientName || 'You') : t.assistant}</span><div className={'message-bubble ' + (item.role === 'user' ? 'user-bubble' : 'assistant-bubble') + (item.error ? ' error-bubble' : '')}>{item.pending ? <><span className="typing-dots"><i/><i/><i/></span>{item.content}<button className="pending-play-button" type="button" disabled aria-label={t.playLabel}>{t.playLabel}</button></> : item.voiceFailed ? <div className="voice-failure" role="status"><p>{t.audioError}</p><div><button type="button" onClick={() => void retryAudio(item.id)} disabled={item.retrying}>{item.retrying ? t.preparingVoice : t.retryAudio}</button><button type="button" onClick={() => setMessages((current) => current.map((message) => message.id === item.id ? { ...message, showText: !message.showText } : message))}>{item.showText ? t.hideText : t.showText}</button></div>{item.retryError && <small>{t.audioError}</small>}{item.showText && <p className="text-only-reply">{item.content}</p>}</div> : item.role === 'assistant' && !item.error && item.audioBlob ? <SpeechPlayback text={item.content} language={language} apiBase={API_BASE} audioBlob={item.audioBlob} autoPlay={item.autoPlay}/> : item.role === 'assistant' && !item.error ? item.content : item.content}</div></div></article>)}</div><div className="chat-disclosures"><div className="safety-banner"><span className="safety-icon">＋</span><p>{t.safety}</p></div><p className="privacy-line">{t.privacy}</p></div></div></div>
+      <div className="composer-wrap"><div className="composer-inner">{mode === 'voice' && <div className={'voice-prompt ' + (recording ? 'is-recording' : '')}><span className="voice-wave"><i/><i/><i/><i/><i/></span><span>{recording ? t.recording : voiceBusy ? t.processing : t.record}</span></div>}<div className="composer"><textarea aria-label={t.inputHint} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder={t.inputHint} rows="1" maxLength={2000} disabled={voiceBusy}/>{mode === 'voice' && <button className={'mic-button ' + (recording ? 'recording' : '')} type="button" onClick={() => void toggleRecording()} disabled={busy || voiceBusy} aria-label={recording ? t.stop : t.record}>{recording ? '■' : '●'}</button>}<button className="send-button" type="button" onClick={() => void sendMessage()} disabled={voiceBusy || !draft.trim()} aria-label={t.send}>{busy || voiceBusy ? <span className="send-spinner"/> : '↑'}</button></div><div className="composer-bottom"><span>{mode === 'voice' ? '30 sec max · Your recording is not saved by this app' : 'Press Enter to send · Shift + Enter for a new line'}</span><span>✳ Arogya Voice may make mistakes</span></div>{notice && <p className="inline-notice" role="status">{notice}</p>}{sessionStatus === 'local' && <p className="inline-notice" role="status">Session metadata could not be saved. The conversation remains temporary in this tab.</p>}</div></div>
     </section>
   </main>;
 }

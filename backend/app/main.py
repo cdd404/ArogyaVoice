@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import io
+import base64
 import logging
 from pathlib import Path
 from typing import Literal
@@ -14,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from groq import AsyncGroq
 from pydantic import BaseModel, Field
+from app.prescription_routes import router as prescription_router
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_DIR / ".env")
@@ -36,6 +38,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+app.include_router(prescription_router)
 
 SYSTEM_PROMPT = """You are Arogya Voice, a careful multilingual healthcare information assistant for a prototype.
 Reply only in {language}. Be warm, plain-spoken, and concise. Ask one or two relevant follow-up questions when important details are missing instead of jumping to conclusions.
@@ -102,7 +105,26 @@ async def chat(request: ChatRequest):
     reply = (completion.choices[0].message.content or "").strip()
     if not reply:
         raise HTTPException(status_code=502, detail="The assistant could not prepare a reply. Please try again.")
-    return {"reply": reply, "model": model}
+    # Generate speech before releasing the reply to the patient. On a TTS outage,
+    # retain the generated text in this private response so the UI can offer a
+    # TTS-only retry or an explicit text-only choice without repeating Groq.
+    try:
+        audio_bytes = await generate_tts_audio(reply, request.language)
+    except HTTPException:
+        return {
+            "reply": reply,
+            "model": model,
+            "voice_status": "failed",
+            "audio_base64": None,
+            "audio_content_type": None,
+        }
+    return {
+        "reply": reply,
+        "model": model,
+        "voice_status": "ready",
+        "audio_base64": base64.b64encode(audio_bytes).decode("ascii"),
+        "audio_content_type": "audio/wav",
+    }
 
 
 @app.post("/voice/stt")
@@ -151,15 +173,20 @@ async def speech_to_text(
     responses={200: {"content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}}}},
 )
 async def text_to_speech(request: SpeechRequest):
+    audio_bytes = await generate_tts_audio(request.text, request.language)
+    return Response(content=audio_bytes, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
+async def generate_tts_audio(text: str, language: Language) -> bytes:
     api_key = os.getenv("GNANI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(status_code=503, detail="Speech output is not configured. Add GNANI_API_KEY to backend/.env.")
 
     payload = {
-        "text": request.text.strip(),
+        "text": text.strip(),
         "model": "timbre-v3.0",
         "voice": "Shivani",
-        "language": GNANI_LOCALES[request.language],
+        "language": GNANI_LOCALES[language],
         "speed": 1.0,
         "audio_config": {
             "sample_rate": 48000,
@@ -234,4 +261,4 @@ async def text_to_speech(request: SpeechRequest):
         len(audio_bytes),
         frame_count / sample_rate,
     )
-    return Response(content=audio_bytes, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+    return audio_bytes
